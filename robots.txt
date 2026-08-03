@@ -1,0 +1,5 @@
+# KISS befindet sich bis zur finalen rechtlichen und inhaltlichen Freigabe im Vorabstatus.
+User-agent: *
+Disallow: /
+
+Sitemap: https://hapo3005.github.io/kiss/sitemap.xml
