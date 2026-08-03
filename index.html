@@ -5,7 +5,16 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="description" content="KISS entwickelt individuelle Premium-Websites für regionale Unternehmen – strategisch, hochwertig und technisch zuverlässig.">
   <meta name="theme-color" content="#082b31">
-  <meta name="robots" content="noindex,nofollow">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="KISS — Premium-Websites für regionale Unternehmen">
+  <meta property="og:description" content="Individuelle Websites, die Vertrauen schaffen, Leistungen überzeugend präsentieren und qualifizierte Anfragen erzeugen.">
+  <meta property="og:url" content="https://hapo3005.github.io/kiss/">
+  <meta property="og:image" content="https://hapo3005.github.io/kiss/og-image.svg">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="canonical" href="https://hapo3005.github.io/kiss/">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="site.webmanifest">
   <title>KISS — Premium-Websites für regionale Unternehmen</title>
   <link rel="stylesheet" href="styles.css">
   <script defer src="script.js"></script>
@@ -17,7 +26,7 @@
     <nav class="desktop-nav" aria-label="Hauptnavigation">
       <a href="#leistungen">Leistungen</a><a href="#projekte">Projekte</a><a href="#prozess">Prozess</a><a href="#ueber-kiss">Über KISS</a><a href="#faq">FAQ</a>
     </nav>
-    <a class="header-cta" href="#kontakt">Projekt besprechen <span>↗</span></a>
+    <a class="header-cta" href="#kontakt">Projekt besprechen <span aria-hidden="true">↗</span></a>
     <button class="menu-button" type="button" aria-expanded="false" aria-controls="mobile-menu">Menü</button>
     <nav class="mobile-menu" id="mobile-menu" aria-label="Mobile Navigation">
       <a href="#leistungen">Leistungen</a><a href="#projekte">Projekte</a><a href="#prozess">Prozess</a><a href="#ueber-kiss">Über KISS</a><a href="#faq">FAQ</a><a href="#kontakt">Projekt besprechen</a>
@@ -28,34 +37,35 @@
     <section class="hero" id="top">
       <div class="hero-glow" aria-hidden="true"></div>
       <div class="hero-copy reveal">
-        <p class="eyebrow">Individuell · regional · wirkungsvoll</p>
+        <p class="eyebrow">Keep It Simple Solutions · Webdesign aus der Region</p>
         <h1>Websites, die regionale Unternehmen <em>größer wirken lassen.</em></h1>
         <p class="lead">KISS entwickelt individuelle Premium-Websites, die Vertrauen schaffen, Leistungen überzeugend präsentieren und aus Besuchern qualifizierte Anfragen machen.</p>
-        <div class="actions"><a class="button button-primary" href="#kontakt">Projekt besprechen <span>↗</span></a><a class="button button-secondary" href="#projekte">Referenzen ansehen <span>→</span></a></div>
+        <div class="actions"><a class="button button-primary" href="#kontakt">Projekt besprechen <span aria-hidden="true">↗</span></a><a class="button button-secondary" href="#projekte">Referenzen ansehen <span aria-hidden="true">→</span></a></div>
+        <p class="hero-note">Persönlich betreut · individuell gestaltet · technisch geprüft</p>
       </div>
-      <div class="hero-visual reveal" aria-label="Vorschau eines KISS-Webprojekts">
+      <div class="hero-visual reveal" aria-label="Vorschau des KISS-Projekts Jungenwaldmühle">
         <div class="browser-frame">
           <div class="browser-bar"><i></i><i></i><i></i><span>jungenwaldmuehle.de</span></div>
           <div class="browser-content">
             <div class="project-nav"><strong>JUNGENWALD<br>MÜHLE</strong><small>Mühle · Produkte · Qualität · Kontakt</small></div>
-            <div class="project-hero"><p>Tradition. Handwerk. Qualität.</p><h2>Ein Ort mit Geschichte.<br>Ein Auftritt mit Zukunft.</h2><span>Projekt ansehen →</span></div>
+            <div class="project-hero"><p>Tradition. Handwerk. Qualität.</p><h2>Ein Ort mit Geschichte.<br>Ein Auftritt mit Zukunft.</h2><a href="https://hapo3005.github.io/jungenwaldmuehle_neu/" target="_blank" rel="noreferrer">Live ansehen →</a></div>
             <div class="mill-mark" aria-hidden="true">JM</div>
           </div>
         </div>
-        <div class="stone"></div>
+        <div class="stone" aria-hidden="true"></div>
       </div>
-      <div class="proof-strip">
-        <article><span>◇</span><div><strong>Individuelles Design</strong><small>Kein Baukasten. Kein Standard.</small></div></article>
-        <article><span>◎</span><div><strong>Strategisch aufgebaut</strong><small>Klare Struktur. Klare Botschaften.</small></div></article>
-        <article><span>⬡</span><div><strong>Technisch geprüft</strong><small>Schnell, sicher und zuverlässig.</small></div></article>
-        <article><span>♙</span><div><strong>Persönlich betreut</strong><small>Direkter Kontakt. Ehrliche Beratung.</small></div></article>
+      <div class="proof-strip" aria-label="KISS Qualitätsversprechen">
+        <article><span aria-hidden="true">◇</span><div><strong>Individuelles Design</strong><small>Kein Baukasten. Kein Standard.</small></div></article>
+        <article><span aria-hidden="true">◎</span><div><strong>Strategisch aufgebaut</strong><small>Klare Struktur. Klare Botschaften.</small></div></article>
+        <article><span aria-hidden="true">⬡</span><div><strong>Technisch geprüft</strong><small>Schnell, sicher und zuverlässig.</small></div></article>
+        <article><span aria-hidden="true">♙</span><div><strong>Persönlich betreut</strong><small>Direkter Kontakt. Ehrliche Beratung.</small></div></article>
       </div>
     </section>
 
     <section class="projects section" id="projekte">
       <div class="section-intro reveal"><p class="eyebrow">Ausgewählte Projekte</p><h2>Echte Unternehmen.<br><em>Individuelle Lösungen.</em></h2><p>Jede Website entsteht aus dem Unternehmen heraus – mit eigener Bildwelt, eigener Dramaturgie und einem klaren geschäftlichen Ziel.</p></div>
       <div class="project-grid">
-        <a class="project-card project-card--mill reveal" href="https://hapo3005.github.io/jungenwaldmuehle_neu/" target="_blank" rel="noreferrer"><span>Gastronomie & Erlebnis</span><h3>Jungenwaldmühle</h3><p>Tradition online erlebbar machen.</p><b>Projekt ansehen ↗</b></a>
+        <a class="project-card project-card--mill reveal" href="https://hapo3005.github.io/jungenwaldmuehle_neu/" target="_blank" rel="noreferrer"><span>Gastronomie & Erlebnis</span><h3>Jungenwaldmühle</h3><p>Tradition online erlebbar machen.</p><b>Live-Projekt ansehen ↗</b></a>
         <article class="project-card project-card--build reveal"><span>Innenausbau</span><h3>Wunschausbau</h3><p>Hochwertiges Handwerk klar positioniert.</p><b>Referenz in Entwicklung</b></article>
         <article class="project-card project-card--ride reveal"><span>Reitsport & Training</span><h3>Reiten in der Eifel</h3><p>Leidenschaft professionell präsentiert.</p><b>Konzeptprojekt</b></article>
       </div>
@@ -64,11 +74,11 @@
     <section class="services section" id="leistungen">
       <div class="section-heading reveal"><p class="eyebrow">Leistungen</p><h2>Websites, die mehr leisten als gut auszusehen.</h2></div>
       <div class="service-list">
-        <article class="service reveal"><span>01</span><div><h3>Premium-Websites</h3><p>Individuell gestaltet, strategisch aufgebaut und technisch auf höchstem Niveau umgesetzt.</p></div><b>↗</b></article>
-        <article class="service reveal"><span>02</span><div><h3>Website-Relaunch</h3><p>Ein bestehender Auftritt wird neu geordnet, modernisiert und auf echte Wirkung ausgerichtet.</p></div><b>↗</b></article>
-        <article class="service reveal"><span>03</span><div><h3>Strategie & Positionierung</h3><p>Klare Botschaften, schlüssige Nutzerführung und eine überzeugende digitale Markenposition.</p></div><b>↗</b></article>
-        <article class="service reveal"><span>04</span><div><h3>Bildkonzept & Content</h3><p>Professionelle Inhalte und glaubwürdige Bildwelten, die Vertrauen schaffen und verkaufen.</p></div><b>↗</b></article>
-        <article class="service reveal"><span>05</span><div><h3>Betreuung & Weiterentwicklung</h3><p>Langfristige Begleitung, technische Pflege und gezielte Weiterentwicklung nach dem Launch.</p></div><b>↗</b></article>
+        <article class="service reveal"><span>01</span><div><h3>Premium-Websites</h3><p>Individuell gestaltet, strategisch aufgebaut und technisch auf höchstem Niveau umgesetzt.</p></div><b aria-hidden="true">↗</b></article>
+        <article class="service reveal"><span>02</span><div><h3>Website-Relaunch</h3><p>Ein bestehender Auftritt wird neu geordnet, modernisiert und auf echte Wirkung ausgerichtet.</p></div><b aria-hidden="true">↗</b></article>
+        <article class="service reveal"><span>03</span><div><h3>Strategie & Positionierung</h3><p>Klare Botschaften, schlüssige Nutzerführung und eine überzeugende digitale Markenposition.</p></div><b aria-hidden="true">↗</b></article>
+        <article class="service reveal"><span>04</span><div><h3>Bildkonzept & Content</h3><p>Professionelle Inhalte und glaubwürdige Bildwelten, die Vertrauen schaffen und verkaufen.</p></div><b aria-hidden="true">↗</b></article>
+        <article class="service reveal"><span>05</span><div><h3>Betreuung & Weiterentwicklung</h3><p>Langfristige Begleitung, technische Pflege und gezielte Weiterentwicklung nach dem Launch.</p></div><b aria-hidden="true">↗</b></article>
       </div>
     </section>
 
@@ -101,7 +111,7 @@
 
     <section class="contact section" id="kontakt">
       <div class="contact-copy reveal"><p class="eyebrow">Bereit für den nächsten Schritt?</p><h2>Lassen Sie uns gemeinsam etwas Großes schaffen.</h2><p>Erzählen Sie uns von Ihrem Unternehmen, Ihrer aktuellen Website und Ihrem Ziel. Daraus entwickeln wir den sinnvollsten nächsten Schritt.</p></div>
-      <a class="button button-primary reveal" href="mailto:kontakt@kiss-webdesign.de">Projekt besprechen <span>↗</span></a>
+      <a class="button button-primary reveal" href="mailto:kontakt@kiss-webdesign.de?subject=Projektanfrage%20an%20KISS">Projekt besprechen <span aria-hidden="true">↗</span></a>
     </section>
   </main>
 
@@ -109,7 +119,7 @@
     <div><a class="logo" href="#top">KISS<span>.</span></a><p>Premium-Websites für regionale Unternehmen.</p></div>
     <nav><strong>Navigation</strong><a href="#leistungen">Leistungen</a><a href="#projekte">Projekte</a><a href="#prozess">Prozess</a><a href="#ueber-kiss">Über KISS</a></nav>
     <nav><strong>Kontakt</strong><a href="mailto:kontakt@kiss-webdesign.de">kontakt@kiss-webdesign.de</a><span>Wittlich · Mosel · Eifel · DACH</span></nav>
-    <nav><strong>Rechtliches</strong><a href="#">Impressum</a><a href="#">Datenschutz</a></nav>
+    <nav><strong>Rechtliches</strong><a href="impressum.html">Impressum</a><a href="datenschutz.html">Datenschutz</a></nav>
     <small>© 2026 KISS — Keep It Simple Solutions</small>
   </footer>
 </body>
