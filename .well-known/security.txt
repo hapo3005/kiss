@@ -1,0 +1,5 @@
+Contact: mailto:kontakt@kiss-webdesign.de
+Preferred-Languages: de, en
+Canonical: https://hapo3005.github.io/kiss/.well-known/security.txt
+Policy: https://hapo3005.github.io/kiss/datenschutz.html
+Expires: 2027-08-03T00:00:00Z
