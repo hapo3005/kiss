@@ -1,0 +1,29 @@
+/* Final visual and accessibility polish layered over the base design. */
+:focus-visible{outline:3px solid var(--bronze-light);outline-offset:4px}
+html{scroll-padding-top:6rem}
+body{font-size:clamp(.98rem,.94rem + .15vw,1.08rem)}
+.site-header{max-width:100%;margin-inline:auto}
+.hero{min-height:94svh}
+.hero-copy{padding-top:1.5rem}
+.hero-note{margin:1.4rem 0 0;color:rgba(243,238,228,.52);font-size:.82rem;letter-spacing:.06em}
+.project-hero a{display:inline-flex;padding:.55rem .8rem;border:1px solid var(--bronze);color:var(--bronze-light);font-size:.66rem;text-decoration:none}
+.project-hero a:hover{background:var(--bronze);color:var(--petrol)}
+.project-card{border-radius:.35rem}
+.project-card::before{background:linear-gradient(to top,rgba(3,18,20,.98),rgba(3,18,20,.42) 54%,rgba(3,18,20,.05))}
+.project-card--mill::after{background:radial-gradient(circle at 65% 35%,rgba(222,188,136,.28),transparent 18rem),linear-gradient(135deg,#304842,#6c725d 48%,#182221)}
+.project-card--build::after{background:linear-gradient(135deg,#171b1a 0%,#756550 48%,#2b302e 100%)}
+.project-card--ride::after{background:radial-gradient(circle at 72% 38%,rgba(150,126,93,.72) 0 12%,transparent 33%),linear-gradient(135deg,#153029,#4a4735)}
+.service{transition:background .25s,padding .25s}
+.service:hover{padding-inline:1rem;background:rgba(255,255,255,.025)}
+.quality-card{box-shadow:0 2rem 5rem rgba(0,0,0,.16)}
+.site-footer a:hover{color:var(--bronze-light)}
+.legal-page{min-height:100svh;padding:9rem clamp(1.25rem,6vw,8rem) 5rem;background:linear-gradient(135deg,#061f23,#0b3339)}
+.legal-page article{max-width:58rem}
+.legal-page h1{margin:.3rem 0 2rem;font-family:var(--serif);font-size:clamp(3rem,7vw,6rem);font-weight:400;line-height:1}
+.legal-page h2{margin-top:2.5rem;font-family:var(--serif);font-weight:400;color:var(--bronze-light)}
+.legal-page p,.legal-page li{color:rgba(243,238,228,.72)}
+.legal-notice{padding:1rem 1.2rem;border:1px solid var(--line);background:rgba(0,0,0,.14)}
+@media(max-width:70rem){.hero{min-height:auto}.hero-note{margin-bottom:1rem}.project-grid{grid-template-columns:1fr 1fr}.project-card:first-child{grid-column:1/-1}.process-grid{grid-template-columns:repeat(3,1fr)}.process-grid li:nth-child(3){border-right:0}.process-grid li:nth-child(n+4){border-top:1px solid var(--line)}}
+@media(max-width:48rem){.site-header{min-height:4.6rem}.hero{padding-top:6.5rem}.hero h1{font-size:clamp(3.1rem,15vw,5.3rem)}.hero-visual{min-height:22rem}.browser-content{min-height:19rem}.project-nav small,.mill-mark{display:none}.project-hero{max-width:84%}.proof-strip{position:static;grid-template-columns:1fr 1fr}.proof-strip article:nth-child(2){border-right:0}.project-grid,.about,.faq{grid-template-columns:1fr}.project-card:first-child{grid-column:auto}.project-card{min-height:22rem}.process-grid{grid-template-columns:1fr 1fr}.process-grid li{min-height:auto;border-bottom:1px solid var(--line)}.process-grid li:nth-child(odd){border-right:1px solid var(--line)}.process-grid li:nth-child(even){border-right:0}.contact{align-items:flex-start}.site-footer{grid-template-columns:1fr 1fr}.site-footer>div{grid-column:1/-1}}
+@media(max-width:32rem){.proof-strip,.process-grid,.site-footer{grid-template-columns:1fr}.proof-strip article,.process-grid li{border-right:0!important}.actions,.button{width:100%}.project-card{min-height:19rem}.service{grid-template-columns:2.5rem 1fr}.service>b{display:none}.contact{display:block}.contact>.button{margin-top:1.5rem}.site-footer nav{grid-column:1/-1}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.reveal{opacity:1;transform:none;transition:none}.browser-frame,.project-card::after,.button,.service{transition:none!important}}
