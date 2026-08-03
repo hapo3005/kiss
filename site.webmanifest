@@ -1,0 +1,9 @@
+{
+  "name": "KISS — Keep It Simple Solutions",
+  "short_name": "KISS",
+  "start_url": "/kiss/",
+  "display": "standalone",
+  "background_color": "#082b31",
+  "theme_color": "#082b31",
+  "icons": [{"src":"favicon.svg","sizes":"any","type":"image/svg+xml"}]
+}
