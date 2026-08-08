@@ -12,3 +12,4 @@
 .reveal{opacity:1;transform:none}
 @media(max-width:1100px){.site-header.scrolled{height:76px}.main-project{width:88%;margin-right:6%}}
 @media(max-width:767px){.site-header.scrolled{height:72px}.main-project{width:100%;margin-right:0}.project-phone{right:2%;bottom:-25px;width:82px;height:215px;border-width:4px}.project-phone strong{margin-top:28px;font-size:12px}.project-phone i{height:45px}.project-count{margin-bottom:25px}.collab-head figure{height:240px}}
+@media(min-width:1500px){.site-header,.hero,.section,.site-footer{padding-left:calc((100vw - 1440px)/2 + 40px);padding-right:calc((100vw - 1440px)/2 + 40px)}.projects h2{font-size:4rem}.hero h1{font-size:6rem}.services h2,.contact h2{font-size:4.8rem}}
