@@ -1,0 +1,10 @@
+{
+  "name": "@kiss/visual-quality-runner",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Cross-browser and cross-OS geometry-based visual quality gate for KISS web projects.",
+  "dependencies": {
+    "playwright": "1.62.0"
+  }
+}
