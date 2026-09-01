@@ -4,14 +4,14 @@ import process from 'node:process';
 import { chromium, firefox, webkit, devices } from 'playwright';
 
 const ROOT = process.cwd();
-const baseUrl = (process.env.KISS_QA_BASE_URL || 'http://127.0.0.1:4321').replace(/\/+$/, '');
-const engineName = process.env.KISS_QA_ENGINE || 'chromium';
-const profileSet = process.env.KISS_QA_PROFILE_SET || 'full';
-const osLabel = process.env.KISS_QA_OS || process.platform;
-const configPath = path.resolve(ROOT, process.env.KISS_QA_CONFIG || '.kiss-qa.json');
-const artifactRoot = path.resolve(ROOT, '.kiss-qa-artifacts', osLabel, engineName);
+const BASE_URL = (process.env.KISS_QA_BASE_URL || 'http://127.0.0.1:4321').replace(/\/+$/, '');
+const ENGINE = process.env.KISS_QA_ENGINE || 'chromium';
+const PROFILE_SET = process.env.KISS_QA_PROFILE_SET || 'full';
+const OS = process.env.KISS_QA_OS || process.platform;
+const CONFIG_PATH = path.resolve(ROOT, process.env.KISS_QA_CONFIG || '.kiss-qa.json');
+const ARTIFACT_ROOT = path.resolve(ROOT, 'kiss-qa-artifacts', OS, ENGINE);
 
-const DEFAULT_THRESHOLDS = {
+const DEFAULT_THRESHOLDS = Object.freeze({
   horizontalOverflowPx: 2,
   aboveFoldWarnRatio: 0.26,
   aboveFoldFailRatio: 0.38,
@@ -27,12 +27,13 @@ const DEFAULT_THRESHOLDS = {
   columnStartFailVh: 0.14,
   columnBlankFailRatio: 0.28,
   columnBlankWarnRatio: 0.22,
+  sideBySideMaxHorizontalOverlap: 0.35,
   sectionPaddingWarnPx: 180,
   sectionPaddingWarnVh: 0.19,
   sectionContentOccupancyWarn: 0.65
-};
+});
 
-const defaultProfiles = {
+const PROFILES = {
   chromium: {
     full: [
       { name: 'phone-small-360x800', viewport: { width: 360, height: 800 }, isMobile: true, hasTouch: true },
@@ -75,32 +76,30 @@ const defaultProfiles = {
       { name: 'iphone-se', device: 'iPhone SE' },
       { name: 'iphone-15', device: 'iPhone 15' },
       { name: 'ipad-mini', device: 'iPad Mini' },
-      { name: 'desktop-safari', device: 'Desktop Safari' },
+      { name: 'desktop-webkit', device: 'Desktop Safari' },
       { name: 'wide-1920x1080', viewport: { width: 1920, height: 1080 } }
     ],
     core: [
       { name: 'iphone-se', device: 'iPhone SE' },
       { name: 'iphone-15', device: 'iPhone 15' },
-      { name: 'desktop-safari', device: 'Desktop Safari' }
+      { name: 'desktop-webkit', device: 'Desktop Safari' }
     ],
     'os-smoke': [
       { name: 'iphone-15', device: 'iPhone 15' },
-      { name: 'desktop-safari', device: 'Desktop Safari' }
+      { name: 'desktop-webkit', device: 'Desktop Safari' }
     ]
   }
 };
 
-const engines = { chromium, firefox, webkit };
-if (!engines[engineName]) {
-  throw new Error(`Unsupported KISS_QA_ENGINE "${engineName}". Expected chromium, firefox or webkit.`);
-}
+const BROWSERS = { chromium, firefox, webkit };
+if (!BROWSERS[ENGINE]) throw new Error(`Unsupported KISS_QA_ENGINE: ${ENGINE}`);
 
 async function readConfig() {
   try {
-    return JSON.parse(await fs.readFile(configPath, 'utf8'));
+    return JSON.parse(await fs.readFile(CONFIG_PATH, 'utf8'));
   } catch (error) {
     if (error?.code === 'ENOENT') return {};
-    throw new Error(`Cannot read ${configPath}: ${error.message}`);
+    throw error;
   }
 }
 
@@ -116,28 +115,35 @@ function routeKey(route) {
   return clean ? clean.replace(/[^a-z0-9_-]+/gi, '-') : 'home';
 }
 
-function isAllowed(route, rule, selector = '') {
+function joinUrl(base, route = '/') {
+  const suffix = String(route || '/').replace(/^\/+/, '');
+  return suffix ? `${base}/${suffix}` : `${base}/`;
+}
+
+function allowed(route, rule, selector = '') {
   return allowRules.some((entry) => {
     if (!entry || typeof entry !== 'object') return false;
-    const routeOk = !entry.route || entry.route === route || entry.route === '*';
-    const ruleOk = !entry.rule || entry.rule === rule || entry.rule === '*';
-    const selectorOk = !entry.selector || entry.selector === selector;
-    return routeOk && ruleOk && selectorOk;
+    return (!entry.route || entry.route === route || entry.route === '*')
+      && (!entry.rule || entry.rule === rule || entry.rule === '*')
+      && (!entry.selector || entry.selector === selector);
   });
 }
 
-function contextOptions(profile) {
+function profileOptions(profile) {
   const base = {
     locale: config.locale || 'de-DE',
     colorScheme: config.colorScheme || 'light',
     reducedMotion: 'reduce'
   };
-  if (profile.device && devices[profile.device]) return { ...devices[profile.device], ...base };
+  if (profile.device) {
+    const device = devices[profile.device];
+    if (!device) throw new Error(`Unknown Playwright device profile: ${profile.device}`);
+    return { ...device, ...base };
+  }
   return {
     ...base,
     viewport: profile.viewport,
-    isMobile: Boolean(profile.isMobile),
-    hasTouch: Boolean(profile.hasTouch)
+    ...(ENGINE === 'chromium' ? { isMobile: Boolean(profile.isMobile), hasTouch: Boolean(profile.hasTouch) } : {})
   };
 }
 
@@ -145,11 +151,10 @@ async function settle(page) {
   await page.evaluate(() => {
     for (const img of document.images) img.loading = 'eager';
   });
-  await page.waitForLoadState('networkidle', { timeout: 7_000 }).catch(() => {});
+  await page.waitForLoadState('networkidle', { timeout: 7000 }).catch(() => {});
   await page.evaluate(async () => {
     if (document.fonts?.ready) await document.fonts.ready;
-    const imgs = [...document.images];
-    await Promise.all(imgs.map(async (img) => {
+    await Promise.all([...document.images].map(async (img) => {
       if (!img.complete) {
         await Promise.race([
           new Promise((resolve) => {
@@ -166,65 +171,66 @@ async function settle(page) {
 }
 
 async function discoverRoutes(browserType) {
-  if (explicitRoutes?.length) return [...new Set(explicitRoutes.map((r) => r.startsWith('/') ? r : `/${r}`))];
+  if (explicitRoutes?.length) {
+    return [...new Set(explicitRoutes.map((route) => route.startsWith('/') ? route : `/${route}`))].slice(0, maxRoutes);
+  }
 
   const browser = await browserType.launch({ headless: true });
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, locale: config.locale || 'de-DE' });
   const page = await context.newPage();
-  const discovered = new Set(['/']);
-
   try {
-    const response = await page.goto(`${baseUrl}/`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+    const response = await page.goto(joinUrl(BASE_URL, '/'), { waitUntil: 'domcontentloaded', timeout: 30000 });
     if (!response || response.status() >= 400) return ['/'];
     await settle(page);
-    const sameOrigin = await page.evaluate((limit) => {
-      const out = [];
+    const rawRoutes = await page.evaluate((limit) => {
+      const found = [];
       for (const anchor of document.querySelectorAll('a[href]')) {
         const raw = anchor.getAttribute('href');
-        if (!raw || raw.startsWith('#') || raw.startsWith('mailto:') || raw.startsWith('tel:') || raw.startsWith('javascript:')) continue;
+        if (!raw || /^(?:#|mailto:|tel:|javascript:)/i.test(raw)) continue;
         try {
-          const u = new URL(raw, location.href);
-          if (u.origin !== location.origin) continue;
-          out.push(`${u.pathname}${u.search}`);
+          const url = new URL(raw, location.href);
+          if (url.origin !== location.origin) continue;
+          found.push(url.pathname);
         } catch {}
-        if (out.length >= limit * 3) break;
+        if (found.length >= limit * 3) break;
       }
-      return out;
+      return found;
     }, maxRoutes);
-    for (const item of sameOrigin) {
-      const basePath = new URL(baseUrl).pathname.replace(/\/+$/, '');
-      let p = item.split('?')[0] || '/';
-      if (basePath && basePath !== '/' && p.startsWith(basePath)) p = p.slice(basePath.length) || '/';
-      if (!p.startsWith('/')) p = `/${p}`;
-      discovered.add(p);
-      if (discovered.size >= maxRoutes) break;
+
+    const basePath = new URL(BASE_URL).pathname.replace(/\/+$/, '');
+    const routes = new Set(['/']);
+    for (let raw of rawRoutes) {
+      if (basePath && basePath !== '/' && raw.startsWith(basePath)) raw = raw.slice(basePath.length) || '/';
+      if (!raw.startsWith('/')) raw = `/${raw}`;
+      routes.add(raw);
+      if (routes.size >= maxRoutes) break;
     }
+    return [...routes];
   } finally {
     await context.close();
     await browser.close();
   }
-  return [...discovered];
 }
 
-const meaningfulSelector = [
+const MEANINGFUL_SELECTOR = [
   'h1','h2','h3','h4','h5','h6','p','blockquote','li','dt','dd',
   'a[href]','button','input','textarea','select','img','picture','video',
   'form','table','address','[role="button"]','[role="img"]'
 ].join(',');
 
 async function collectLayout(page) {
-  return page.evaluate(({ meaningfulSelector, thresholds }) => {
-    const visible = (el) => {
-      if (!(el instanceof Element)) return false;
-      const style = getComputedStyle(el);
+  return page.evaluate((meaningfulSelector) => {
+    const visible = (element) => {
+      if (!(element instanceof Element)) return false;
+      const style = getComputedStyle(element);
       if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) < 0.02) return false;
-      const rect = el.getBoundingClientRect();
+      const rect = element.getBoundingClientRect();
       return rect.width > 1 && rect.height > 1;
     };
 
-    const rectOf = (el) => {
-      if (!el) return null;
-      const r = el.getBoundingClientRect();
+    const box = (element) => {
+      if (!element) return null;
+      const r = element.getBoundingClientRect();
       return {
         top: r.top + scrollY,
         bottom: r.bottom + scrollY,
@@ -235,103 +241,73 @@ async function collectLayout(page) {
       };
     };
 
+    const selectorFor = (element) => element.id
+      ? `#${element.id}`
+      : element.classList.length
+        ? `.${[...element.classList].slice(0, 2).join('.')}`
+        : element.tagName.toLowerCase();
+
     const main = document.querySelector('main') || document.body;
     const header = document.querySelector('header, [role="banner"], .site-header');
-    const headerRect = rectOf(header);
-    const mainRect = rectOf(main);
-
-    const firstSection =
-      main.querySelector('[data-kiss-hero], :scope > .hero, :scope > [class*="hero"], :scope > section:first-of-type, :scope > section:first-child')
-      || main.firstElementChild;
-    const hero = firstSection && visible(firstSection) ? firstSection : null;
-    const heroRect = rectOf(hero);
+    const mainBox = box(main);
+    const headerBox = box(header);
+    const heroCandidate = main.querySelector(
+      '[data-kiss-hero], :scope > .hero, :scope > [class*="hero"], :scope > section:first-of-type, :scope > section:first-child'
+    ) || main.firstElementChild;
+    const hero = heroCandidate && visible(heroCandidate) ? heroCandidate : null;
+    const heroBox = box(hero);
 
     const meaningful = [...main.querySelectorAll(meaningfulSelector)]
       .filter(visible)
-      .map((el) => ({ el, rect: rectOf(el) }))
-      .filter((x) => x.rect);
+      .map((element) => ({ element, box: box(element) }))
+      .filter((item) => item.box);
 
-    const topOrigin = Math.max(headerRect?.bottom || 0, mainRect?.top || 0);
+    const contentOrigin = Math.max(headerBox?.bottom || 0, mainBox?.top || 0);
     const firstMeaningful = meaningful
-      .filter((x) => x.rect.bottom >= topOrigin - 2)
-      .sort((a, b) => a.rect.top - b.rect.top)[0]?.rect || null;
+      .filter((item) => item.box.bottom >= contentOrigin - 2)
+      .sort((a, b) => a.box.top - b.box.top)[0]?.box || null;
 
-    let heroMetrics = null;
-    if (hero && heroRect) {
-      const inside = meaningful.filter((x) => {
-        const r = x.rect;
-        return r.bottom > heroRect.top && r.top < heroRect.bottom && r.right > heroRect.left && r.left < heroRect.right;
+    let heroData = null;
+    if (hero && heroBox) {
+      const inside = meaningful.filter((item) => {
+        const r = item.box;
+        return r.bottom > heroBox.top && r.top < heroBox.bottom && r.right > heroBox.left && r.left < heroBox.right;
       });
+      const contentTop = inside.length ? Math.min(...inside.map((item) => item.box.top)) : heroBox.bottom;
+      const contentBottom = inside.length ? Math.max(...inside.map((item) => item.box.bottom)) : heroBox.top;
+      const contentSpan = Math.max(0, Math.min(heroBox.bottom, contentBottom) - Math.max(heroBox.top, contentTop));
 
-      const clipped = inside.map(({ rect }) => ({
-        top: Math.max(rect.top, heroRect.top),
-        bottom: Math.min(rect.bottom, heroRect.bottom)
-      })).filter((r) => r.bottom > r.top).sort((a, b) => a.top - b.top);
+      const collectColumns = (parent) => [...parent.children].filter(visible).map((child) => {
+        const childBox = box(child);
+        if (!childBox || childBox.width < heroBox.width * 0.20) return null;
+        const descendants = [...child.querySelectorAll(meaningfulSelector)].filter(visible);
+        if (child.matches(meaningfulSelector)) descendants.unshift(child);
+        const contentBoxes = descendants.map(box).filter(Boolean);
+        if (!contentBoxes.length) return null;
+        return {
+          selector: selectorFor(child),
+          box: childBox,
+          contentTop: Math.min(...contentBoxes.map((r) => r.top)),
+          contentBottom: Math.max(...contentBoxes.map((r) => r.bottom))
+        };
+      }).filter(Boolean);
 
-      const merged = [];
-      for (const interval of clipped) {
-        const last = merged.at(-1);
-        if (last && interval.top <= last.bottom + 2) last.bottom = Math.max(last.bottom, interval.bottom);
-        else merged.push({ ...interval });
-      }
-      const occupied = merged.reduce((sum, r) => sum + (r.bottom - r.top), 0);
-      const contentTop = inside.length ? Math.min(...inside.map((x) => x.rect.top)) : heroRect.bottom;
-      const contentBottom = inside.length ? Math.max(...inside.map((x) => x.rect.bottom)) : heroRect.top;
-      const contentSpan = Math.max(0, Math.min(heroRect.bottom, contentBottom) - Math.max(heroRect.top, contentTop));
-
+      let columns = collectColumns(hero);
       const directChildren = [...hero.children].filter(visible);
-      const columnCandidates = [];
-      const heroWidth = Math.max(1, heroRect.width);
-      for (const child of directChildren) {
-        const childRect = rectOf(child);
-        if (!childRect || childRect.width < heroWidth * 0.22) continue;
-        const childMeaningful = [...child.querySelectorAll(meaningfulSelector)].filter(visible);
-        if (child.matches(meaningfulSelector)) childMeaningful.unshift(child);
-        const tops = childMeaningful.map((el) => rectOf(el)?.top).filter((v) => Number.isFinite(v));
-        if (!tops.length) continue;
-        columnCandidates.push({
-          selector: child.id ? `#${child.id}` : child.classList.length ? `.${[...child.classList].slice(0, 2).join('.')}` : child.tagName.toLowerCase(),
-          top: Math.min(...tops),
-          width: childRect.width,
-          height: childRect.height
-        });
-      }
-
-      if (columnCandidates.length < 2 && directChildren.length === 1) {
-        const wrapper = directChildren[0];
-        const wrapperRect = rectOf(wrapper);
-        if (wrapperRect && wrapperRect.width > heroWidth * 0.7) {
-          for (const child of [...wrapper.children].filter(visible)) {
-            const childRect = rectOf(child);
-            if (!childRect || childRect.width < heroWidth * 0.22) continue;
-            const childMeaningful = [...child.querySelectorAll(meaningfulSelector)].filter(visible);
-            if (child.matches(meaningfulSelector)) childMeaningful.unshift(child);
-            const tops = childMeaningful.map((el) => rectOf(el)?.top).filter((v) => Number.isFinite(v));
-            if (!tops.length) continue;
-            columnCandidates.push({
-              selector: child.id ? `#${child.id}` : child.classList.length ? `.${[...child.classList].slice(0, 2).join('.')}` : child.tagName.toLowerCase(),
-              top: Math.min(...tops),
-              width: childRect.width,
-              height: childRect.height
-            });
-          }
-        }
-      }
+      if (columns.length < 2 && directChildren.length === 1) columns = collectColumns(directChildren[0]);
 
       const style = getComputedStyle(hero);
-      heroMetrics = {
-        selector: hero.id ? `#${hero.id}` : hero.classList.length ? `.${[...hero.classList].slice(0, 2).join('.')}` : hero.tagName.toLowerCase(),
-        rect: heroRect,
+      heroData = {
+        selector: selectorFor(hero),
+        box: heroBox,
         contentTop,
         contentBottom,
         contentSpan,
-        occupiedVerticalPx: occupied,
-        occupiedVerticalRatio: heroRect.height ? occupied / heroRect.height : 1,
-        topGap: Math.max(0, contentTop - heroRect.top),
-        bottomGap: Math.max(0, heroRect.bottom - contentBottom),
+        topGap: Math.max(0, contentTop - heroBox.top),
+        bottomGap: Math.max(0, heroBox.bottom - contentBottom),
         paddingTop: Number.parseFloat(style.paddingTop) || 0,
         paddingBottom: Number.parseFloat(style.paddingBottom) || 0,
-        columns: columnCandidates
+        columns
       };
     }
 
@@ -340,181 +316,181 @@ async function collectLayout(page) {
       viewport: { width: innerWidth, height: innerHeight },
       page: {
         scrollWidth: Math.max(root.scrollWidth, document.body?.scrollWidth || 0),
-        clientWidth: root.clientWidth,
-        scrollHeight: Math.max(root.scrollHeight, document.body?.scrollHeight || 0)
+        clientWidth: root.clientWidth
       },
-      headerRect,
-      mainRect,
       firstMeaningful,
-      aboveFoldGap: firstMeaningful ? Math.max(0, firstMeaningful.top - topOrigin) : null,
-      hero: heroMetrics,
-      thresholdEcho: thresholds
+      aboveFoldGap: firstMeaningful ? Math.max(0, firstMeaningful.top - contentOrigin) : null,
+      hero: heroData
     };
-  }, { meaningfulSelector, thresholds });
+  }, MEANINGFUL_SELECTOR);
 }
 
-function evaluateLayout(route, metrics) {
-  const fails = [];
+function horizontalOverlapRatio(a, b) {
+  const overlap = Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left));
+  return overlap / Math.max(1, Math.min(a.width, b.width));
+}
+
+function sideBySidePairs(columns) {
+  const pairs = [];
+  for (let i = 0; i < columns.length; i += 1) {
+    for (let j = i + 1; j < columns.length; j += 1) {
+      const a = columns[i];
+      const b = columns[j];
+      if (horizontalOverlapRatio(a.box, b.box) <= thresholds.sideBySideMaxHorizontalOverlap) {
+        pairs.push([a, b]);
+      }
+    }
+  }
+  return pairs;
+}
+
+function assess(route, metrics) {
+  const failures = [];
   const warnings = [];
   const vh = metrics.viewport.height;
   const overflow = metrics.page.scrollWidth - metrics.page.clientWidth;
 
-  if (overflow > thresholds.horizontalOverflowPx && !isAllowed(route, 'horizontal-overflow')) {
-    fails.push({
-      rule: 'horizontal-overflow',
-      message: `Horizontal overflow ${Math.round(overflow)}px exceeds ${thresholds.horizontalOverflowPx}px.`
-    });
+  if (overflow > thresholds.horizontalOverflowPx && !allowed(route, 'horizontal-overflow')) {
+    failures.push({ rule: 'horizontal-overflow', message: `Horizontal overflow ${Math.round(overflow)}px.` });
   }
 
-  if (metrics.aboveFoldGap != null && !isAllowed(route, 'above-fold-gap')) {
+  if (metrics.aboveFoldGap != null && !allowed(route, 'above-fold-gap')) {
     const ratio = metrics.aboveFoldGap / vh;
     if (ratio > thresholds.aboveFoldFailRatio) {
-      fails.push({ rule: 'above-fold-gap', message: `First meaningful content starts ${Math.round(metrics.aboveFoldGap)}px (${(ratio * 100).toFixed(0)}vh) below the content origin.` });
+      failures.push({ rule: 'above-fold-gap', message: `First meaningful content starts ${Math.round(metrics.aboveFoldGap)}px (${(ratio * 100).toFixed(0)}vh) below content origin.` });
     } else if (ratio > thresholds.aboveFoldWarnRatio) {
       warnings.push({ rule: 'above-fold-gap', message: `Large first-content gap: ${Math.round(metrics.aboveFoldGap)}px (${(ratio * 100).toFixed(0)}vh).` });
     }
   }
 
   const hero = metrics.hero;
-  if (hero && hero.rect.height > 0) {
-    const heroHeightRatio = hero.rect.height / vh;
-    const contentOccupancy = hero.contentSpan / hero.rect.height;
-    if (!isAllowed(route, 'hero-height', hero.selector)) {
-      if (heroHeightRatio > thresholds.heroTallFailRatio && contentOccupancy < thresholds.heroContentOccupancyFail) {
-        fails.push({ rule: 'hero-height', selector: hero.selector, message: `Hero is ${(heroHeightRatio * 100).toFixed(0)}vh high while content spans only ${(contentOccupancy * 100).toFixed(0)}% of it.` });
-      } else if (heroHeightRatio > thresholds.heroTallWarnRatio && contentOccupancy < thresholds.heroContentOccupancyWarn) {
-        warnings.push({ rule: 'hero-height', selector: hero.selector, message: `Hero is unusually tall (${(heroHeightRatio * 100).toFixed(0)}vh) for its content (${(contentOccupancy * 100).toFixed(0)}% span).` });
-      }
-    }
+  if (!hero?.box?.height) return { failures, warnings };
 
-    const topGapRatio = hero.topGap / hero.rect.height;
-    if (!isAllowed(route, 'hero-top-gap', hero.selector)) {
-      if (topGapRatio > thresholds.heroTopGapFailRatio && hero.topGap > 220) {
-        fails.push({ rule: 'hero-top-gap', selector: hero.selector, message: `Hero content begins ${Math.round(hero.topGap)}px into the section (${(topGapRatio * 100).toFixed(0)}%).` });
-      } else if (topGapRatio > thresholds.heroTopGapWarnRatio && hero.topGap > 150) {
-        warnings.push({ rule: 'hero-top-gap', selector: hero.selector, message: `Large hero top gap: ${Math.round(hero.topGap)}px (${(topGapRatio * 100).toFixed(0)}%).` });
-      }
+  const heroHeightRatio = hero.box.height / vh;
+  const contentOccupancy = hero.contentSpan / hero.box.height;
+  if (!allowed(route, 'hero-height', hero.selector)) {
+    if (heroHeightRatio > thresholds.heroTallFailRatio && contentOccupancy < thresholds.heroContentOccupancyFail) {
+      failures.push({ rule: 'hero-height', selector: hero.selector, message: `Hero is ${(heroHeightRatio * 100).toFixed(0)}vh high while content spans ${(contentOccupancy * 100).toFixed(0)}%.` });
+    } else if (heroHeightRatio > thresholds.heroTallWarnRatio && contentOccupancy < thresholds.heroContentOccupancyWarn) {
+      warnings.push({ rule: 'hero-height', selector: hero.selector, message: `Hero is unusually tall (${(heroHeightRatio * 100).toFixed(0)}vh) for its content (${(contentOccupancy * 100).toFixed(0)}%).` });
     }
+  }
 
-    if (!isAllowed(route, 'section-padding', hero.selector)) {
-      const paddingLimit = Math.max(thresholds.sectionPaddingWarnPx, vh * thresholds.sectionPaddingWarnVh);
-      const contentRatio = hero.contentSpan / hero.rect.height;
-      if ((hero.paddingTop > paddingLimit || hero.paddingBottom > paddingLimit) && contentRatio < thresholds.sectionContentOccupancyWarn) {
-        warnings.push({
-          rule: 'section-padding',
-          selector: hero.selector,
-          message: `Hero padding is large (top ${Math.round(hero.paddingTop)}px / bottom ${Math.round(hero.paddingBottom)}px) while content spans ${(contentRatio * 100).toFixed(0)}%.`
-        });
-      }
+  const topGapRatio = hero.topGap / hero.box.height;
+  if (!allowed(route, 'hero-top-gap', hero.selector)) {
+    if (hero.topGap > 220 && topGapRatio > thresholds.heroTopGapFailRatio) {
+      failures.push({ rule: 'hero-top-gap', selector: hero.selector, message: `Hero content begins ${Math.round(hero.topGap)}px into section (${(topGapRatio * 100).toFixed(0)}%).` });
+    } else if (hero.topGap > 150 && topGapRatio > thresholds.heroTopGapWarnRatio) {
+      warnings.push({ rule: 'hero-top-gap', selector: hero.selector, message: `Large hero top gap: ${Math.round(hero.topGap)}px (${(topGapRatio * 100).toFixed(0)}%).` });
     }
+  }
 
-    if (hero.columns?.length >= 2 && !isAllowed(route, 'column-start-delta', hero.selector)) {
-      const starts = hero.columns.map((c) => c.top).filter(Number.isFinite);
-      const minTop = Math.min(...starts);
-      const maxTop = Math.max(...starts);
-      const delta = maxTop - minTop;
-      const blankRatio = Math.max(0, maxTop - hero.rect.top) / hero.rect.height;
+  const paddingLimit = Math.max(thresholds.sectionPaddingWarnPx, vh * thresholds.sectionPaddingWarnVh);
+  if (!allowed(route, 'section-padding', hero.selector)
+      && (hero.paddingTop > paddingLimit || hero.paddingBottom > paddingLimit)
+      && contentOccupancy < thresholds.sectionContentOccupancyWarn) {
+    warnings.push({
+      rule: 'section-padding',
+      selector: hero.selector,
+      message: `Hero padding is large (top ${Math.round(hero.paddingTop)}px / bottom ${Math.round(hero.paddingBottom)}px) while content spans ${(contentOccupancy * 100).toFixed(0)}%.`
+    });
+  }
+
+  if (!allowed(route, 'column-start-delta', hero.selector)) {
+    for (const [a, b] of sideBySidePairs(hero.columns || [])) {
+      const delta = Math.abs(a.contentTop - b.contentTop);
+      const lowerTop = Math.max(a.contentTop, b.contentTop);
+      const blankRatio = Math.max(0, lowerTop - hero.box.top) / hero.box.height;
       const warnLimit = Math.max(thresholds.columnStartWarnPx, vh * thresholds.columnStartWarnVh);
       const failLimit = Math.max(thresholds.columnStartFailPx, vh * thresholds.columnStartFailVh);
       if (delta > failLimit && blankRatio > thresholds.columnBlankFailRatio) {
-        fails.push({
+        failures.push({
           rule: 'column-start-delta',
           selector: hero.selector,
-          message: `Hero columns start ${Math.round(delta)}px apart; the lower column leaves ${(blankRatio * 100).toFixed(0)}% of hero height empty above its content.`
+          message: `Side-by-side hero columns start ${Math.round(delta)}px apart; lower column leaves ${(blankRatio * 100).toFixed(0)}% of hero height empty above its content.`
         });
-      } else if (delta > warnLimit && blankRatio > thresholds.columnBlankWarnRatio) {
+        break;
+      }
+      if (delta > warnLimit && blankRatio > thresholds.columnBlankWarnRatio) {
         warnings.push({
           rule: 'column-start-delta',
           selector: hero.selector,
-          message: `Hero column starts differ by ${Math.round(delta)}px with ${(blankRatio * 100).toFixed(0)}% blank space above the lower column.`
+          message: `Side-by-side hero columns start ${Math.round(delta)}px apart with ${(blankRatio * 100).toFixed(0)}% blank space above lower content.`
         });
+        break;
       }
     }
   }
 
-  return { fails, warnings };
+  return { failures, warnings };
 }
 
 async function run() {
-  await fs.rm(artifactRoot, { recursive: true, force: true });
-  await fs.mkdir(artifactRoot, { recursive: true });
+  await fs.rm(ARTIFACT_ROOT, { recursive: true, force: true });
+  await fs.mkdir(ARTIFACT_ROOT, { recursive: true });
 
-  const browserType = engines[engineName];
-  const profiles = defaultProfiles[engineName]?.[profileSet] || defaultProfiles[engineName]?.core;
+  const browserType = BROWSERS[ENGINE];
+  const profiles = PROFILES[ENGINE]?.[PROFILE_SET] || PROFILES[ENGINE]?.core;
+  if (!profiles?.length) throw new Error(`No profiles for ${ENGINE}/${PROFILE_SET}`);
   const routes = await discoverRoutes(browserType);
   const browser = await browserType.launch({ headless: true });
-  const results = [];
-  const globalFails = [];
-  const globalWarnings = [];
+  const cases = [];
+  const failures = [];
+  const warnings = [];
 
   try {
     for (const profile of profiles) {
-      const context = await browser.newContext(contextOptions(profile));
-      for (const route of routes) {
-        const page = await context.newPage();
-        const consoleErrors = [];
-        const responseErrors = [];
+      const context = await browser.newContext(profileOptions(profile));
+      try {
+        for (const route of routes) {
+          const page = await context.newPage();
+          const browserErrors = [];
+          const badResponses = [];
+          page.on('pageerror', (error) => browserErrors.push(`pageerror: ${error.message}`));
+          page.on('console', (message) => {
+            if (message.type() === 'error') browserErrors.push(`console: ${message.text()}`);
+          });
+          page.on('response', (response) => {
+            if (response.status() < 400) return;
+            try {
+              if (new URL(response.url()).origin === new URL(BASE_URL).origin) {
+                badResponses.push(`${response.status()} ${new URL(response.url()).pathname}`);
+              }
+            } catch {}
+          });
 
-        page.on('pageerror', (err) => consoleErrors.push(`pageerror: ${err.message}`));
-        page.on('console', (msg) => {
-          if (msg.type() === 'error') consoleErrors.push(`console: ${msg.text()}`);
-        });
-        page.on('response', (response) => {
-          if (response.status() < 400) return;
+          let metrics = null;
+          let status = null;
+          let result = { failures: [], warnings: [] };
           try {
-            const current = new URL(response.url());
-            const base = new URL(baseUrl);
-            if (current.origin === base.origin) responseErrors.push(`${response.status()} ${current.pathname}`);
-          } catch {}
-        });
-
-        const targetUrl = `${baseUrl}${route === '/' ? '/' : route}`;
-        let navigationStatus = null;
-        let metrics = null;
-        let assessed = { fails: [], warnings: [] };
-
-        try {
-          const response = await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
-          navigationStatus = response?.status() ?? null;
-          if (!response || response.status() >= 400) {
-            assessed.fails.push({ rule: 'navigation', message: `Navigation failed with status ${navigationStatus ?? 'none'}.` });
-          } else {
-            await settle(page);
-            metrics = await collectLayout(page);
-            assessed = evaluateLayout(route, metrics);
+            const response = await page.goto(joinUrl(BASE_URL, route), { waitUntil: 'domcontentloaded', timeout: 30000 });
+            status = response?.status() ?? null;
+            if (!response || response.status() >= 400) {
+              result.failures.push({ rule: 'navigation', message: `Navigation failed with status ${status ?? 'none'}.` });
+            } else {
+              await settle(page);
+              metrics = await collectLayout(page);
+              result = assess(route, metrics);
+            }
+          } catch (error) {
+            result.failures.push({ rule: 'navigation', message: error.message });
           }
-        } catch (error) {
-          assessed.fails.push({ rule: 'navigation', message: error.message });
+
+          if (browserErrors.length) result.failures.push({ rule: 'browser-errors', message: [...new Set(browserErrors)].join(' | ') });
+          if (badResponses.length) result.failures.push({ rule: 'network-errors', message: [...new Set(badResponses)].join(' | ') });
+
+          const enrichedFailures = result.failures.map((item) => ({ ...item, route, profile: profile.name, engine: ENGINE, os: OS }));
+          const enrichedWarnings = result.warnings.map((item) => ({ ...item, route, profile: profile.name, engine: ENGINE, os: OS }));
+          failures.push(...enrichedFailures);
+          warnings.push(...enrichedWarnings);
+
+          await page.screenshot({ path: path.join(ARTIFACT_ROOT, `${routeKey(route)}--${profile.name}.png`), fullPage: false }).catch(() => {});
+          cases.push({ route, profile: profile.name, engine: ENGINE, os: OS, status, metrics, failures: enrichedFailures, warnings: enrichedWarnings });
+          await page.close();
         }
-
-        if (consoleErrors.length) {
-          assessed.fails.push({ rule: 'browser-errors', message: [...new Set(consoleErrors)].join(' | ') });
-        }
-        if (responseErrors.length) {
-          assessed.fails.push({ rule: 'network-errors', message: [...new Set(responseErrors)].join(' | ') });
-        }
-
-        const screenshotName = `${routeKey(route)}--${profile.name}.png`;
-        await page.screenshot({ path: path.join(artifactRoot, screenshotName), fullPage: false }).catch(() => {});
-
-        const enrichedFails = assessed.fails.map((f) => ({ ...f, route, profile: profile.name, engine: engineName, os: osLabel }));
-        const enrichedWarnings = assessed.warnings.map((w) => ({ ...w, route, profile: profile.name, engine: engineName, os: osLabel }));
-        globalFails.push(...enrichedFails);
-        globalWarnings.push(...enrichedWarnings);
-        results.push({
-          route,
-          profile: profile.name,
-          engine: engineName,
-          os: osLabel,
-          navigationStatus,
-          metrics,
-          fails: enrichedFails,
-          warnings: enrichedWarnings
-        });
-
-        await page.close();
+      } finally {
+        await context.close();
       }
-      await context.close();
     }
   } finally {
     await browser.close();
@@ -522,60 +498,44 @@ async function run() {
 
   const report = {
     generatedAt: new Date().toISOString(),
-    baseUrl,
-    os: osLabel,
-    engine: engineName,
-    profileSet,
+    baseUrl: BASE_URL,
+    os: OS,
+    engine: ENGINE,
+    profileSet: PROFILE_SET,
     routes,
     thresholds,
-    failOnWarnings,
-    summary: { failures: globalFails.length, warnings: globalWarnings.length, cases: results.length },
-    failures: globalFails,
-    warnings: globalWarnings,
-    cases: results
+    summary: { failures: failures.length, warnings: warnings.length, cases: cases.length },
+    failures,
+    warnings,
+    cases
   };
-
-  await fs.writeFile(path.join(artifactRoot, 'report.json'), JSON.stringify(report, null, 2));
+  await fs.writeFile(path.join(ARTIFACT_ROOT, 'report.json'), JSON.stringify(report, null, 2));
 
   const lines = [
-    '# KISS Visual Quality Gate',
-    '',
-    `- OS: **${osLabel}**`,
-    `- Engine: **${engineName}**`,
-    `- Profilset: **${profileSet}**`,
+    '# KISS Visual Quality Gate', '',
+    `- OS: **${OS}**`,
+    `- Engine: **${ENGINE}**`,
+    `- Profilset: **${PROFILE_SET}**`,
     `- Routen: **${routes.length}**`,
-    `- Fälle: **${results.length}**`,
-    `- Fehler: **${globalFails.length}**`,
-    `- Warnungen: **${globalWarnings.length}**`,
-    ''
+    `- Fälle: **${cases.length}**`,
+    `- Fehler: **${failures.length}**`,
+    `- Warnungen: **${warnings.length}**`, ''
   ];
-
-  if (globalFails.length) {
+  if (failures.length) {
     lines.push('## Fehler', '');
-    for (const item of globalFails) {
-      lines.push(`- **${item.rule}** — ${item.route} / ${item.profile}: ${item.message}`);
-    }
+    failures.forEach((item) => lines.push(`- **${item.rule}** — ${item.route} / ${item.profile}: ${item.message}`));
     lines.push('');
   }
-
-  if (globalWarnings.length) {
+  if (warnings.length) {
     lines.push('## Warnungen', '');
-    for (const item of globalWarnings) {
-      lines.push(`- **${item.rule}** — ${item.route} / ${item.profile}: ${item.message}`);
-    }
+    warnings.forEach((item) => lines.push(`- **${item.rule}** — ${item.route} / ${item.profile}: ${item.message}`));
     lines.push('');
   }
-
-  if (!globalFails.length && !globalWarnings.length) {
-    lines.push('Keine verdächtigen Layout-Proportionen oder technischen Rendering-Probleme erkannt.', '');
-  }
-
-  await fs.writeFile(path.join(artifactRoot, 'report.md'), `${lines.join('\n')}\n`);
+  if (!failures.length && !warnings.length) lines.push('Keine verdächtigen Layout-Proportionen oder technischen Rendering-Probleme erkannt.', '');
+  await fs.writeFile(path.join(ARTIFACT_ROOT, 'report.md'), `${lines.join('\n')}\n`);
   console.log(lines.join('\n'));
 
-  if (globalFails.length || (failOnWarnings && globalWarnings.length)) {
-    process.exit(1);
-  }
+  if (failures.length || (failOnWarnings && warnings.length)) process.exit(1);
 }
 
 await run();
