@@ -148,7 +148,7 @@ jobs:
         env:
           KISS_PREVIEW_COMMAND: ${{ inputs['preview-command'] }}
         run: |
-          bash -lc "$KISS_PREVIEW_COMMAND" > .kiss-preview.log 2>&1 &
+          eval "$KISS_PREVIEW_COMMAND" > .kiss-preview.log 2>&1 &
           echo $! > .kiss-preview.pid
 
       - name: Preview abwarten
