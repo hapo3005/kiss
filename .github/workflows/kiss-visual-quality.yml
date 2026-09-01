@@ -1,0 +1,179 @@
+name: KISS Cross-Platform Visual Quality
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: Node.js version used by the caller project.
+        required: false
+        type: string
+        default: '22'
+      install-command:
+        description: Dependency install command. Set to an empty string for dependency-free static sites.
+        required: false
+        type: string
+        default: 'npm ci'
+      build-command:
+        description: Production build command. Set to an empty string if no build is required.
+        required: false
+        type: string
+        default: 'npm run build'
+      preview-command:
+        description: Long-running command that serves the built site.
+        required: false
+        type: string
+        default: 'npm run preview -- --host 127.0.0.1 --port 4321'
+      base-url:
+        description: Local URL used by the visual quality runner.
+        required: false
+        type: string
+        default: 'http://127.0.0.1:4321'
+      config-path:
+        description: Path to the project-specific KISS QA config.
+        required: false
+        type: string
+        default: '.kiss-qa.json'
+      extended-os:
+        description: Also run Windows and macOS browser smoke tests.
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  visual-quality:
+    name: ${{ matrix.label }}
+    if: ${{ matrix.tier == 'core' || inputs['extended-os'] }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: Linux Chromium · full device matrix
+            os: ubuntu-latest
+            os_label: linux
+            engine: chromium
+            profile_set: full
+            tier: core
+          - label: Linux Firefox · responsive core
+            os: ubuntu-latest
+            os_label: linux
+            engine: firefox
+            profile_set: core
+            tier: core
+          - label: Linux WebKit · iPhone/Safari core
+            os: ubuntu-latest
+            os_label: linux
+            engine: webkit
+            profile_set: core
+            tier: core
+          - label: Windows Chromium · OS smoke
+            os: windows-latest
+            os_label: windows
+            engine: chromium
+            profile_set: os-smoke
+            tier: extended
+          - label: Windows Firefox · OS smoke
+            os: windows-latest
+            os_label: windows
+            engine: firefox
+            profile_set: os-smoke
+            tier: extended
+          - label: macOS WebKit · Safari/iPhone smoke
+            os: macos-latest
+            os_label: macos
+            engine: webkit
+            profile_set: os-smoke
+            tier: extended
+          - label: macOS Chromium · OS smoke
+            os: macos-latest
+            os_label: macos
+            engine: chromium
+            profile_set: os-smoke
+            tier: extended
+
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+
+    steps:
+      - name: Caller repository auschecken
+        uses: actions/checkout@v4
+
+      - name: Zentrales KISS-QA-Toolkit laden
+        uses: actions/checkout@v4
+        with:
+          repository: hapo3005/kiss
+          ref: main
+          path: .kiss-quality
+          sparse-checkout: |
+            qa
+          sparse-checkout-cone-mode: true
+
+      - name: Node einrichten
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs['node-version'] }}
+
+      - name: Projekt installieren
+        if: ${{ inputs['install-command'] != '' }}
+        shell: bash
+        run: ${{ inputs['install-command'] }}
+
+      - name: Projekt bauen
+        if: ${{ inputs['build-command'] != '' }}
+        shell: bash
+        run: ${{ inputs['build-command'] }}
+
+      - name: KISS-QA Runtime installieren
+        shell: bash
+        run: npm install --prefix .kiss-quality/qa --no-audit --no-fund
+
+      - name: Browser + Systemabhängigkeiten installieren
+        if: ${{ runner.os == 'Linux' }}
+        shell: bash
+        env:
+          KISS_ENGINE: ${{ matrix.engine }}
+        run: node .kiss-quality/qa/node_modules/playwright/cli.js install --with-deps "$KISS_ENGINE"
+
+      - name: Browser installieren
+        if: ${{ runner.os != 'Linux' }}
+        shell: bash
+        env:
+          KISS_ENGINE: ${{ matrix.engine }}
+        run: node .kiss-quality/qa/node_modules/playwright/cli.js install "$KISS_ENGINE"
+
+      - name: Lokale Preview starten
+        shell: bash
+        env:
+          KISS_PREVIEW_COMMAND: ${{ inputs['preview-command'] }}
+        run: |
+          bash -lc "$KISS_PREVIEW_COMMAND" > .kiss-preview.log 2>&1 &
+          echo $! > .kiss-preview.pid
+
+      - name: Preview abwarten
+        shell: bash
+        env:
+          KISS_QA_BASE_URL: ${{ inputs['base-url'] }}
+        run: node .kiss-quality/qa/wait-for-url.mjs "$KISS_QA_BASE_URL"
+
+      - name: Visual Rhythm + Layout Quality prüfen
+        shell: bash
+        env:
+          KISS_QA_BASE_URL: ${{ inputs['base-url'] }}
+          KISS_QA_ENGINE: ${{ matrix.engine }}
+          KISS_QA_PROFILE_SET: ${{ matrix.profile_set }}
+          KISS_QA_OS: ${{ matrix.os_label }}
+          KISS_QA_CONFIG: ${{ inputs['config-path'] }}
+        run: node .kiss-quality/qa/visual-quality.mjs
+
+      - name: Reports und Screenshots hochladen
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: kiss-visual-quality-${{ matrix.os_label }}-${{ matrix.engine }}
+          path: |
+            .kiss-qa-artifacts/**
+            .kiss-preview.log
+          if-no-files-found: warn
+          retention-days: 14
