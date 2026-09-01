@@ -33,11 +33,6 @@ on:
         required: false
         type: string
         default: '.kiss-qa.json'
-      extended-os:
-        description: Also run Windows and macOS browser smoke tests.
-        required: false
-        type: boolean
-        default: true
 
 permissions:
   contents: read
@@ -45,7 +40,6 @@ permissions:
 jobs:
   visual-quality:
     name: ${{ matrix.label }}
-    if: ${{ matrix.tier == 'core' || inputs['extended-os'] }}
     strategy:
       fail-fast: false
       matrix:
@@ -55,43 +49,36 @@ jobs:
             os_label: linux
             engine: chromium
             profile_set: full
-            tier: core
           - label: Linux Firefox · responsive core
             os: ubuntu-latest
             os_label: linux
             engine: firefox
             profile_set: core
-            tier: core
           - label: Linux WebKit · iPhone/Safari core
             os: ubuntu-latest
             os_label: linux
             engine: webkit
             profile_set: core
-            tier: core
           - label: Windows Chromium · OS smoke
             os: windows-latest
             os_label: windows
             engine: chromium
             profile_set: os-smoke
-            tier: extended
           - label: Windows Firefox · OS smoke
             os: windows-latest
             os_label: windows
             engine: firefox
             profile_set: os-smoke
-            tier: extended
           - label: macOS WebKit · Safari/iPhone smoke
             os: macos-latest
             os_label: macos
             engine: webkit
             profile_set: os-smoke
-            tier: extended
           - label: macOS Chromium · OS smoke
             os: macos-latest
             os_label: macos
             engine: chromium
             profile_set: os-smoke
-            tier: extended
 
     runs-on: ${{ matrix.os }}
     timeout-minutes: 25
